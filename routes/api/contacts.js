@@ -2,6 +2,7 @@ const express = require("express");
 const RequestError = require("../../helpers/RequestError");
 const Joi = require("joi");
 const Contact = require("../../model/contacts");
+const authenticate = require("../../helpers/authenticate");
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ const SchemaFavorite = Joi.object({
   favorite: Joi.boolean().required(),
 });
 
-router.get("/", async (req, res, next) => {
+router.get("/", authenticate, async (req, res, next) => {
   try {
     const result = await Contact.find();
     res.json(result);
@@ -25,7 +26,7 @@ router.get("/", async (req, res, next) => {
   }
 });
 
-router.get("/:contactId", async (req, res, next) => {
+router.get("/:contactId", authenticate, async (req, res, next) => {
   try {
     const { contactId } = req.params;
     const result = await Contact.findOne({ _id: contactId });
@@ -38,7 +39,7 @@ router.get("/:contactId", async (req, res, next) => {
   }
 });
 
-router.post("/", async (req, res, next) => {
+router.post("/", authenticate, async (req, res, next) => {
   try {
     const { error } = Schema.validate(req.body);
     const result = await Contact.create(req.body);
@@ -51,7 +52,7 @@ router.post("/", async (req, res, next) => {
   }
 });
 
-router.delete("/:contactId", async (req, res, next) => {
+router.delete("/:contactId", authenticate, async (req, res, next) => {
   try {
     const { contactId } = req.params;
     const result = await Contact.findByIdAndRemove(contactId);
@@ -64,7 +65,7 @@ router.delete("/:contactId", async (req, res, next) => {
   }
 });
 
-router.put("/:contactId", async (req, res, next) => {
+router.put("/:contactId", authenticate, async (req, res, next) => {
   try {
     const { error } = Schema.validate(req.body);
     const { contactId } = req.params;
@@ -80,7 +81,7 @@ router.put("/:contactId", async (req, res, next) => {
   }
 });
 
-router.patch("/:contactId/favorite", async (req, res, next) => {
+router.patch("/:contactId/favorite", authenticate, async (req, res, next) => {
   try {
     const { error } = SchemaFavorite.validate(req.body);
     const { contactId } = req.params;
