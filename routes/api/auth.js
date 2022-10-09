@@ -5,6 +5,10 @@ const User = require("../../model/users");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const authenticate = require("../../helpers/authenticate");
+const upload = require("../../helpers/upload");
+const gravatar = require("gravatar");
+const fs = require("fs/promises");
+const path = require("path");
 require("dotenv").config();
 
 const { SECRET_KEY } = process.env;
@@ -28,11 +32,12 @@ routerAuth.post("/register", async (req, res, next) => {
     }
     const { email, password } = req.body;
     const hashPass = await bcrypt.hash(password, 10);
+    const avatarURL = gravatar.url(email);
     const user = await User.findOne({ email });
     if (user) {
       throw RequestError(409, "User already registred");
     }
-    const result = await User.create({ email, password: hashPass });
+    const result = await User.create({ email, password: hashPass, avatarURL });
     res.json({
       user: { subscription: result.subscription, email: result.email },
     });
@@ -97,5 +102,31 @@ routerAuth.get("/current", authenticate, async (req, res, next) => {
     next(error);
   }
 });
+
+const avatarDir = path.join(__dirname, "../../public/avatars");
+
+routerAuth.patch(
+  "/avatars",
+  authenticate,
+  upload.single("avatar"),
+  async (req, res, next) => {
+    try {
+      const { _id } = req.user;
+      const { path: tempUpload, originalname } = req.file;
+      const extention = originalname.split(".").pop();
+      const filename = `${_id}.${extention}`;
+      const resultUpload = path.join(avatarDir, filename);
+      await fs.rename(tempUpload, resultUpload);
+      const avatarURL = path.join("avatars", filename);
+      await User.findByIdAndUpdate(_id, { avatarURL });
+      res.json({
+        avatarURL,
+      });
+    } catch (error) {
+      await fs.unlink(req.file.path);
+      throw error;
+    }
+  }
+);
 
 module.exports = routerAuth;
