@@ -3,7 +3,7 @@ const createVerifyEmail = (to, verificationToken) => {
   const mail = {
     to,
     subject: "Confirmation your email!",
-    html: `<a target="_blank" href="${BASE_URL}/api/auth/verify/${verificationToken}">Click to confirm email!<a/>`,
+    html: `<a target="_blank" href="${BASE_URL}/users/verify/${verificationToken}">Click to confirm email!<a/>`,
   };
 
   return mail;
