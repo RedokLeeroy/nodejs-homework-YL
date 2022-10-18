@@ -5,6 +5,9 @@ const User = require("../../model/users");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const authenticate = require("../../helpers/authenticate");
+const sendMail = require("../../helpers/sendEmail");
+const createVerifyEmail = require("../../helpers/createVerifyEmail");
+const { nanoid } = require("nanoid");
 const upload = require("../../helpers/upload");
 const gravatar = require("gravatar");
 const fs = require("fs/promises");
@@ -32,12 +35,26 @@ routerAuth.post("/register", async (req, res, next) => {
     }
     const { email, password } = req.body;
     const hashPass = await bcrypt.hash(password, 10);
+
+    const verificationToken = nanoid();
+
     const avatarURL = gravatar.url(email);
+
     const user = await User.findOne({ email });
     if (user) {
       throw RequestError(409, "User already registred");
     }
-    const result = await User.create({ email, password: hashPass, avatarURL });
+
+    const result = await User.create({
+      email,
+      password: hashPass,
+      verificationToken: verificationToken,
+      avatarURL
+    });
+
+    const mail = createVerifyEmail(email, verificationToken);
+    await sendMail(mail);
+
     res.json({
       user: { subscription: result.subscription, email: result.email },
     });
@@ -97,6 +114,47 @@ routerAuth.get("/current", authenticate, async (req, res, next) => {
     res.json({
       email,
       subscription,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+routerAuth.get("/verify/:verificationToken", async (req, res, next) => {
+  try {
+    const { verificationToken } = req.params;
+
+    const user = await User.findOne({ verificationToken });
+    if (!user) {
+      throw RequestError(404, "User not found");
+    }
+    await User.findByIdAndUpdate(user._id, {
+      verify: true,
+      verificationToken: "",
+    });
+
+    res.json({
+      message: "Email verify successful",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+routerAuth.post("/verify", async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+    if (!user || user.verify) {
+      throw RequestError(404, "Not found");
+    }
+    if (user.verify) {
+      throw RequestError(404, "Verification has already been passed");
+    }
+    const mail = createVerifyEmail(email, user.verificationToken);
+    await sendMail(mail);
+    res.json({
+      message: "Verification email has been  sent",
     });
   } catch (error) {
     next(error);
